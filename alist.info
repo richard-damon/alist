@@ -1,0 +1,23 @@
+name = Arlington list
+description = Custom module for the Arlington List
+core = 7.x
+version = "7.x-1.x-dev"
+files[] = alist.module
+dependencies[] = botcha
+dependencies[] = contact
+dependencies[] = dashboard
+dependencies[] = dblog
+dependencies[] = elysia_cron
+dependencies[] = features
+dependencies[] = globalredirect
+dependencies[] = hacked
+dependencies[] = linkchecker
+dependencies[] = mailinglist
+dependencies[] = mailman21
+dependencies[] = module_filter
+dependencies[] = pathauto
+dependencies[] = redirect
+dependencies[] = schema
+dependencies[] = subpathauto
+dependencies[] = views_charts
+
