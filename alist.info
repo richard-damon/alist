@@ -14,6 +14,7 @@ dependencies[] = hacked
 dependencies[] = linkchecker
 dependencies[] = mailinglist
 dependencies[] = mailman21
+dependencies[] = migrate_d2d
 dependencies[] = module_filter
 dependencies[] = pathauto
 dependencies[] = redirect
