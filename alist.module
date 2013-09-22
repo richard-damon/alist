@@ -1,2 +1,341 @@
 <?php
+/**
+ * @file
+ * Module defining specific functionality for the Arlington List.
+ *
+ * This file is the base file for the functionality of the Arlington List.
+ */
 
+ /**
+  * @cond ARLINGTONLIST
+  * @mainpage
+  * Module to build up the specific functionallity for the Arlington List.
+  *
+  * Modules:
+  *
+  * @subpage mailinglist
+  * @endcond
+  */
+
+/**
+ * Implements hook_permission().
+ */
+function alist_permission() {
+  return array(
+    'arlington list search' => array(
+      'title' => t('Search the Archives of the Arlington List'),
+    ),
+    'cast of characters editing' => array(
+      'title' => t('Edit other peoples Cast of Characters entry'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function alist_menu() {
+  $items = array(
+    'archives/search' => array(
+      'title' => 'Search Archives',
+      'description' => 'Arlington List Search Page',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_alist_searchpage'),
+      'access arguments' => array('access content'),
+      'file' => 'alist.search.inc',
+    ),
+    'archives/search/login' => array(
+      'title' => 'Search Archives Login',
+      'description' => 'Arlington List Search Login Page',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_alist_searchlogin'),
+      'access arguments' => array('access content'),
+      'file' => 'alist.search.inc',
+    ),
+    'cast' => array(
+      'title' => 'Cast of Characters',
+      'description' => 'Arlington List Cast of Characters Page',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_alist_castpage'),
+      'access arguments' => array('access content'),
+      'file' => 'alist.cast.inc',
+    ),
+    'cast/entry' => array(
+      'title' => 'Cast of Characters Entry',
+      'description' => 'Arlington List Cast of Characters Entry Page',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_alist_castentry'),
+      'access arguments' => array('access content'),
+      'file' => 'alist.cast.inc',
+    ),
+    'cast/login' => array(
+      'title' => 'Cast of Characters Entry Login',
+      'description' => 'Arlington List Cast of Characters Login Page',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_alist_castlogin'),
+      'access arguments' => array('access content'),
+      'file' => 'alist.cast.inc',
+    ),
+    'options.htm' => array(
+      'title' => 'Arlington List Options',
+      'description' => 'Arlington List Change Options Page',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_alist_optionspage'),
+      'access arguments' => array('access content'),
+      'file' => 'alist.options.inc',
+    ),
+    'stats' => array(
+      'title' => 'Stats',
+      'description' => 'Arlington List Stats Page',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_alist_statspage'),
+      'access arguments' => array('access content'),
+      'file' => 'alist.stats.inc',
+    ),
+    'stats/admin' => array(
+      'title' => 'Top Posters',
+      'description' => 'Arlington List Posting Stats Page',
+      'type' => MENU_CALLBACK,
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_alist_statsadmin'),
+      'access arguments' => array('administer users'),
+      'file' => 'alist.stats.inc',
+    ),
+  );
+  return $items;
+}
+
+/**
+ * Modify the drupal mail system to send HTML emails.
+ */
+class AListMailSystem implements MailSystemInterface {
+  /**
+   * Concatenate and wrap the e-mail body for plain-text mails.
+   *
+   * @param $message
+   *   A message array, as described in hook_mail_alter().
+   *
+   * @return
+   *   The formatted $message.
+   */
+  public function format(array $message) {
+    $message['body'] = implode("\n\n", $message['body']);
+    return $message;
+  }
+
+  /**
+   * Send an e-mail message, using Drupal variables and default settings.
+   *
+   * @see http://php.net/manual/en/function.mail.php
+   * @see drupal_mail()
+   *
+   * @param $message
+   *   A message array, as described in hook_mail_alter().
+   * @return
+   *   TRUE if the mail was successfully accepted, otherwise FALSE.
+   */
+  public function mail(array $message) {
+    $mimeheaders = array();
+    foreach ($message['headers'] as $name => $value) {
+      $mimeheaders[] = $name . ': ' . mime_header_encode($value);
+    }
+    $line_endings = variable_get('mail_line_endings', MAIL_LINE_ENDINGS);
+    return mail(
+      $message['to'],
+      mime_header_encode($message['subject']),
+      // Note: e-mail uses CRLF for line-endings. PHP's API requires LF
+      // on Unix and CRLF on Windows. Drupal automatically guesses the
+      // line-ending format appropriate for your system. If you need to
+      // override this, adjust $conf['mail_line_endings'] in settings.php.
+      preg_replace('@\r?\n@', $line_endings, $message['body']),
+      // For headers, PHP's API suggests that we use CRLF normally,
+      // but some MTAs incorrectly replace LF with CRLF. See #234403.
+      implode("\n", $mimeheaders)
+    );
+  }
+}
+
+/**
+ * Implements hook_mail().
+ */
+function alist_mail($key, &$message, $parms) {
+dpm($key);
+dpm($parms);
+dpm($message);
+
+  $email = check_plain($parms['email']);
+  $msg = $parms['entry'];
+
+  switch ($key) {
+  case 'castentry':
+    $message['subject'] = 'Your Arlington list Cast of Characters entry was successfully created or edited';
+    $message['body'][] = "Hi! Someone, hopefully you, just created or edited your cast of characters entry:\r\n\r\nhttp://new.arlingtonlist.org/cast#P" . $parms['id'] . "\r\n\r\nIf it wasn't you who did it, please reply to this message and let me know!\r\n\r\n-Richard Damon\r\nArlington List Manager";
+    break;
+  case 'castentry_admin':
+    $message['headers']['Content-Type'] = 'text/html; charset=UTF-8; format=flowed';
+    $message['subject'] = 'Cast of Characters entry created/edited by ' . $email;
+    $message['body'][] = check_markup($msg, 'filtered_html');
+    break;
+  }
+  dpm($message);
+}
+
+/**
+ * Test if we have a login cookie for the Arlington List
+ *
+ * @return string
+ *   Email address we are loged in as, or FALSE
+ */
+function _alist_login_test() {
+  if (isset($_COOKIE['alist_email']) && isset($_COOKIE['alist_pass'])) {
+    $email = $_COOKIE['alist_email'];
+    $password = _mailinglist_decode_password($_COOKIE['alist_pass']);
+    if (_alist_check_password($email, $password)) {
+      return $email;
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Presents a login form if needed.
+ *
+ * Checks cookie for log in information, and use this if valid.
+ * Else, check information in form.
+ *
+ * @param $form
+ *   Form being processed, login form will be added to it if needed
+ * @param $form_state
+ *   Form state from form for processing
+ */
+function _alist_login(&$form, &$form_state) {
+
+  if (isset($form_state['input']['email']) && isset($form_state['input']['password'])) {
+    $email = $form_state['input']['email'];
+    $pass = $form_state['input']['password'];
+  }
+  elseif (isset($_COOKIE['alist_email']) && isset($_COOKIE['alist_pass'])) {
+    $email = $_COOKIE['alist_email'];
+    $pass = _mailinglist_decode_password($_COOKIE['alist_pass']);
+  }
+  else {
+    $email = '';
+    $pass = '';
+  }
+  $form['login'] = array(
+    '#weight' => 10,
+    'email' => array(
+      '#weight' => 40,
+      '#type' => 'textfield',
+      '#title' => 'EMail',
+      '#description' => 'EMail Address you are subscribed with',
+      '#default_value' => $email,
+      '#required' => TRUE,
+    ),
+    'password' => array(
+      '#weight' => 50,
+      '#type' => 'password',
+      '#title' => 'Password',
+      '#description' => 'Your List password',
+      '#default_value' => $pass,
+      '#required' => TRUE,
+    ),
+    'submit' => array(
+      '#weight' => 60,
+      '#type' => 'submit',
+      '#value' => 'Log In',
+    ),
+    'remind' => array(
+      '#weight' => 70,
+      '#type' => 'submit',
+      '#value' => 'Send Password Reminder',
+    ),
+  );
+  return $form;
+}
+
+/**
+ * Form Validate function for login forms.
+ * Forward here from other form validate functions when requesting log-in forms.
+ */
+function _alist_login_validate($form, &$form_state) {
+  if (isset($form_state['input']['email']) && isset($form_state['input']['password'])) {
+    $email = $form_state['input']['email'];
+    $pass = $form_state['input']['password'];
+    $valid = _alist_check_password($email, $pass);
+    $form_state['input']['login'] = $valid;
+    if (!$valid) {
+      form_set_error('password', t('No matched email/password subscription found'));
+    }
+  }
+}
+
+/**
+ * Form Submit function for login forms.
+ * Forward here from other forms submit functions when requesting login form.
+ */
+function _alist_login_submit($form, &$form_state) {
+  if (isset($form_state['input']['email']) &&  isset($form_state['input']['password']) && $form_state['input']['login']) {
+    setcookie('alist_email', $form_state['input']['email'], 0, '/');
+    setcookie('alist_pass', _mailinglist_encode_password($form_state['input']['password']), 0, '/');
+  }
+}
+
+/**
+ * Check if list password is valid.
+ * @param $email
+ *   Email Address of subscription
+ * @param $password
+ *   Supplied password
+ * @return bool
+ *   TRUE if proper signin for the list, else FALSE
+ */
+function _alist_check_password($email, $password) {
+  $valid = FALSE;
+
+  $d["username"] = $email;
+  $d["password"] = $password;
+
+  $ch = curl_init();
+  curl_setopt_array($ch,  array(
+    CURLOPT_URL => "http://six.pairlist.net/mailman/private/arlington/",
+    CURLOPT_RETURNTRANSFER => 1,
+    CURLOPT_POST => 1,
+    CURLOPT_POSTFIELDS => http_build_query($d),
+    ));
+  $result = curl_exec($ch);
+  curl_close($ch);
+  if (strstr($result, "The arlington Archives")) {
+    $valid = TRUE;
+  }
+  return $valid;
+}
+
+/**
+ * Request a password for an account.
+ *
+ * @param $email The email address for the account to request the reminder for
+ */
+function _alist_request_password($email) {
+  $d["email"] = $email;
+  $d["password"] = "";
+  $d["login-remind"] = "Remind";
+  $ch = curl_init();
+
+  curl_setopt_array($ch,  array(
+    CURLOPT_URL => "http://six.pairlist.net/mailman/options/arlington",
+    CURLOPT_RETURNTRANSFER => 1,
+    CURLOPT_POST => 1,
+    CURLOPT_POSTFIELDS => http_build_query($d),
+    ));
+
+  curl_exec($ch);
+  curl_close($ch);
+}
