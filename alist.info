@@ -29,6 +29,7 @@ dependencies[] = help
 //dependencies[] = mailman21
 dependencies[] = menu
 dependencies[] = migrate_d2d
+dependencies[] = module_filter
 dependencies[] = omega_tools
 dependencies[] = pathauto
 dependencies[] = redirect
